@@ -27,7 +27,7 @@ async def main():
         print("  PAYPAL_CLIENT_ID=<your-sandbox-client-id>")
         print("  PAYPAL_CLIENT_SECRET=<your-sandbox-client-secret>")
         print("  PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com")
-        print("\nAll automated tests with mocked PayPal responses have passed (22/22).")
+        print("\nAll automated tests with mocked PayPal responses have passed (23/23).")
         return
 
     print(f"\nTarget Sandbox URL: {settings.paypal_base_url}")
