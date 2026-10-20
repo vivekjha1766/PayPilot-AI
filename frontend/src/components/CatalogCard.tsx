@@ -1,11 +1,17 @@
 import type { CatalogItem } from '../types/catalog';
-import { Box, Layers } from 'lucide-react';
+import { Box, Layers, Plus, Check } from 'lucide-react';
 
 interface CatalogCardProps {
   item: CatalogItem;
+  quantityInCart: number;
+  onAddToCart: (item: CatalogItem) => void;
 }
 
-export const CatalogCard: React.FC<CatalogCardProps> = ({ item }) => {
+export const CatalogCard: React.FC<CatalogCardProps> = ({
+  item,
+  quantityInCart,
+  onAddToCart,
+}) => {
   return (
     <div className="group rounded-2xl border border-slate-800 bg-slate-900/60 hover:bg-slate-900 hover:border-slate-700 transition-all duration-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-xl hover:shadow-indigo-500/5">
       <div>
@@ -28,32 +34,56 @@ export const CatalogCard: React.FC<CatalogCardProps> = ({ item }) => {
         </p>
       </div>
 
-      <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between">
-        <div>
-          <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
-            Authoritative Unit Price
-          </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <span className="text-xl font-bold text-white tracking-tight">
-              ${item.unit_price}
+      <div className="mt-6 pt-4 border-t border-slate-800/80 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
+              Authoritative Price
             </span>
-            <span className="text-xs font-medium text-slate-400">
-              {item.currency}
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-xl font-bold text-white tracking-tight">
+                ${item.unit_price}
+              </span>
+              <span className="text-xs font-medium text-slate-400">
+                {item.currency}
+              </span>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
+              Available
             </span>
+            <div className="flex items-center gap-1.5 mt-0.5 justify-end">
+              <Box className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs font-semibold text-emerald-300">
+                {item.stock} in stock
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="text-right">
-          <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
-            Stock
-          </span>
-          <div className="flex items-center gap-1.5 mt-0.5 justify-end">
-            <Box className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-xs font-semibold text-emerald-300">
-              {item.stock} in stock
-            </span>
-          </div>
-        </div>
+        <button
+          onClick={() => onAddToCart(item)}
+          disabled={item.stock <= 0 || quantityInCart >= item.stock}
+          className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+            quantityInCart > 0
+              ? 'bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/30'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+          {quantityInCart > 0 ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-indigo-400" />
+              In Order ({quantityInCart}) • Add More
+            </>
+          ) : (
+            <>
+              <Plus className="w-3.5 h-3.5" />
+              Add to Purchase Order
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

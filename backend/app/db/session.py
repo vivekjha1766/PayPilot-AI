@@ -33,8 +33,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    # Ensure all models are imported before creating tables
     from app.models.catalog import CatalogItem  # noqa: F401
+    from app.models.order import Order, OrderItem, AuditLog  # noqa: F401
     from app.db.seed import seed_catalog
 
     async with engine.begin() as conn:

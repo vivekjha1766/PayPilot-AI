@@ -9,10 +9,10 @@ PayPilot AI enables natural language purchase intent extraction, explainable tra
 ## Architecture Overview
 
 * **Backend**: Python 3.13, FastAPI, Pydantic v2, SQLAlchemy 2.x (async), aiosqlite (SQLite).
-* **Frontend**: React 19, TypeScript, Vite, Tailwind CSS.
+* **Frontend**: React 19, TypeScript, Vite, Tailwind CSS, `@paypal/react-paypal-js`.
 * **Pricing & Security**: Authoritative Decimal pricing serialized as 2-decimal strings (`"289.50"`). Price reconciliation enforced server-side.
-* **AI Service Layer**: Abstract `AIService` interface with a deterministic `MockAIService` double for testing and offline development.
-* **Payments**: PayPal Sandbox Orders v2 (implemented in Milestone 2).
+* **Payments**: PayPal Sandbox Orders v2 REST API (OAuth token caching, server order creation, server capture with amount and currency verification, idempotency, and reconciliation).
+* **AI Service Layer**: Abstract `AIService` interface with a deterministic `MockAIService` double for testing and offline development (Milestone 3).
 
 ---
 
@@ -20,40 +20,59 @@ PayPilot AI enables natural language purchase intent extraction, explainable tra
 
 ```
 PayPilot AI/
-├── .env.example              # Template configuration variables
-├── .gitignore                # Excludes virtual environments, db files, node_modules
-├── README.md                 # Setup, startup, and testing documentation
+├── .env.example                  # Template configuration variables
+├── .gitignore                    # Excludes virtual environments, db files, node_modules
+├── README.md                     # Setup, startup, and testing documentation
 ├── backend/
-│   ├── .venv/                # Isolated virtual environment
-│   ├── requirements.txt      # FastAPI, SQLAlchemy, aiosqlite, greenlet, pytest
-│   ├── pyproject.toml        # Pytest & asyncio configuration
+│   ├── .venv/                    # Isolated virtual environment
+│   ├── requirements.txt          # FastAPI, SQLAlchemy, aiosqlite, respx, pytest
+│   ├── pyproject.toml            # Pytest & asyncio configuration
+│   ├── scripts/
+│   │   └── verify_live_sandbox.py# Script for testing live sandbox credentials
 │   ├── app/
-│   │   ├── main.py           # FastAPI initialization, CORS, lifespan startup
-│   │   ├── core/config.py    # Pydantic Settings
+│   │   ├── main.py               # FastAPI initialization, CORS, lifespan startup
+│   │   ├── core/config.py        # Pydantic Settings
 │   │   ├── db/
-│   │   │   ├── base.py       # DeclarativeBase
-│   │   │   ├── session.py    # Async engine & session factory
-│   │   │   └── seed.py       # Deterministic office catalog seeding
-│   │   ├── models/catalog.py # CatalogItem SQLAlchemy 2.x model
-│   │   ├── schemas/catalog.py# Pydantic schema serializing Decimal to string
-│   │   ├── services/ai/      # AIService interface & MockAIService double
-│   │   └── api/v1/catalog.py # GET /api/v1/catalog endpoint
+│   │   │   ├── base.py           # DeclarativeBase
+│   │   │   ├── session.py        # Async engine & session factory
+│   │   │   └── seed.py           # Deterministic office catalog seeding
+│   │   ├── models/
+│   │   │   ├── catalog.py        # CatalogItem SQLAlchemy 2.x model
+│   │   │   └── order.py          # Order, OrderItem, and AuditLog models
+│   │   ├── schemas/
+│   │   │   ├── catalog.py        # Pydantic schema serializing Decimal to string
+│   │   │   └── order.py          # Order, Item, Capture, and PaymentConfig schemas
+│   │   ├── services/
+│   │   │   ├── paypal_service.py # PayPal Orders v2 OAuth, Create, Capture, Reconcile
+│   │   │   └── ai/               # AIService interface & MockAIService double
+│   │   └── api/v1/
+│   │       ├── router.py         # v1 router aggregator
+│   │       ├── catalog.py        # GET /api/v1/catalog endpoint
+│   │       ├── payments.py       # GET /api/v1/payments/config (public client ID)
+│   │       └── orders.py         # POST /orders, POST /orders/{id}/capture, /cancel
 │   └── tests/
-│       ├── conftest.py       # In-memory SQLite fixtures & AsyncClient transport
-│       ├── test_health.py    # /health verification test
-│       ├── test_catalog.py   # Catalog items & decimal string price format test
-│       └── test_seeding.py   # Idempotent seeding behavior test
+│       ├── conftest.py           # In-memory SQLite fixtures & AsyncClient transport
+│       ├── test_health.py        # /health verification test
+│       ├── test_catalog.py       # Catalog items & decimal string price format test
+│       ├── test_seeding.py       # Idempotent seeding behavior test
+│       ├── test_paypal_service.py# PayPal service unit tests (OAuth, capture, mismatch, timeout)
+│       └── test_orders_api.py    # Order creation, price tampering, capture, concurrency, cancellation
 └── frontend/
     ├── package.json
     ├── vite.config.ts
     ├── tailwind.config.js
     └── src/
-        ├── App.tsx           # Catalog view & status banner
-        ├── services/api.ts   # API client with automatic port detection
+        ├── App.tsx               # Catalog view, cart drawer, and receipt modal
+        ├── services/api.ts       # API client with auto-detection for ports 8000/8001
         ├── components/
-        │   ├── Navbar.tsx    # PayPilot header & live backend status indicator
-        │   └── CatalogCard.tsx# Office equipment card with SKU and stock
-        └── types/catalog.ts  # CatalogItem and HealthStatus interfaces
+        │   ├── Navbar.tsx        # PayPilot header, status indicator & cart trigger
+        │   ├── CatalogCard.tsx   # Product card with "+ Add to Order" button
+        │   ├── CheckoutDrawer.tsx# Cart slide-over with PayPalButtons wrapper
+        │   ├── PayPalButtonWrapper.tsx # Real @paypal/react-paypal-js integration
+        │   └── ReceiptModal.tsx  # Verified PayPal transaction receipt
+        └── types/
+            ├── catalog.ts        # CatalogItem and HealthStatus interfaces
+            └── order.ts          # Order, Item, Cart, and CaptureResult interfaces
 ```
 
 ---
@@ -75,7 +94,7 @@ python -m venv .venv
 # Install backend dependencies
 pip install -r requirements.txt
 
-# Run automated tests
+# Run automated tests (all 22 passing)
 python -m pytest
 
 # Start FastAPI development server
@@ -109,27 +128,43 @@ The frontend will run on `http://127.0.0.1:5173` (or `5174` if 5173 is occupied)
 
 ---
 
-## Verification Endpoints
+## API Endpoints (Milestone 2)
 
-* **Health Check**: `GET http://127.0.0.1:8000/health` (or `8001`)
-  ```json
-  {
-    "status": "ok",
-    "app": "PayPilot AI",
-    "environment": "development",
-    "version": "1.0.0"
-  }
-  ```
-* **Catalog API**: `GET http://127.0.0.1:8000/api/v1/catalog` (or `8001`)
-  Returns 8 seeded office equipment items with authoritative decimal string prices (e.g., `"289.50"`).
-* **Interactive API Documentation**: `http://127.0.0.1:8000/docs`
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Health check endpoint returning app name and version. |
+| `GET` | `/api/v1/catalog` | Authoritative database catalog items with Decimal prices. |
+| `GET` | `/api/v1/payments/config` | Returns public PayPal Client ID and currency. **Never returns secret.** |
+| `POST` | `/api/v1/orders` | Creates internal order + PayPal sandbox order. Validates stock and calculates totals server-side. |
+| `GET` | `/api/v1/orders/{id}` | Retrieves internal order details, items, and audit history. |
+| `POST` | `/api/v1/orders/{id}/capture` | Captures authorized PayPal sandbox payment, validates amounts, deducts stock, and marks COMPLETED. |
+| `POST` | `/api/v1/orders/{id}/cancel` | Marks order as CANCELLED upon buyer cancellation callback. |
+
+---
+
+## Live Sandbox Verification
+
+To test with your live PayPal Developer sandbox credentials:
+
+1. Copy `.env.example` to `backend/.env`.
+2. Add your sandbox merchant credentials:
+   ```env
+   PAYPAL_CLIENT_ID=your_sandbox_client_id
+   PAYPAL_CLIENT_SECRET=your_sandbox_client_secret
+   PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com
+   PAYPAL_CURRENCY=USD
+   ```
+3. Run the verification script:
+   ```powershell
+   python backend/scripts/verify_live_sandbox.py
+   ```
 
 ---
 
 ## Milestone Roadmap
 
 - [x] **Milestone 1**: Foundation and Catalog (FastAPI, SQLite, Seed Catalog, React + Vite frontend, Pytest suite)
-- [ ] **Milestone 2**: Server-Side PayPal Sandbox Integration (OAuth2 token management, Create Order, Server Capture, Live Verification)
+- [x] **Milestone 2**: Real PayPal Sandbox Checkout (PayPal Orders v2 REST API, `@paypal/react-paypal-js`, server capture, price reconciliation, idempotency)
 - [ ] **Milestone 3**: AI Intent Parsing & Risk Engine (Provider-independent AIService, Gemini integration, Explainable Risk Card)
-- [ ] **Milestone 4**: Client Checkout & PayPal JS SDK Integration
+- [ ] **Milestone 4**: Interactive Natural Language Purchasing Dashboard
 - [ ] **Milestone 5**: Full Audit Trail, Receipt Modal & Hackathon Hardening

@@ -1,33 +1,47 @@
 import { useEffect, useState } from 'react';
 import type { CatalogItem, HealthStatus } from './types/catalog';
-import { fetchCatalog, fetchHealth, getApiBaseUrl } from './services/api';
+import type { CartItem, CaptureResult, PaymentConfig } from './types/order';
+import { fetchCatalog, fetchHealth, fetchPaymentConfig, getApiBaseUrl } from './services/api';
 import { Navbar } from './components/Navbar';
 import { CatalogCard } from './components/CatalogCard';
+import { CheckoutDrawer } from './components/CheckoutDrawer';
+import { ReceiptModal } from './components/ReceiptModal';
 import {
   Package,
   Search,
   RefreshCw,
-  Database,
+  CreditCard,
+  ShieldCheck,
+  CheckCircle,
 } from 'lucide-react';
 
 export function App() {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
+  // Cart & Checkout State
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [completedCapture, setCompletedCapture] = useState<CaptureResult | null>(null);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [healthData, catalogData] = await Promise.all([
+      const [healthData, catalogData, payConfig] = await Promise.all([
         fetchHealth(),
         fetchCatalog(),
+        fetchPaymentConfig(),
       ]);
       setHealth(healthData);
       setCatalog(catalogData);
+      setPaymentConfig(payConfig);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown connection error';
       setError(message);
@@ -39,6 +53,60 @@ export function App() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleAddToCart = (item: CatalogItem) => {
+    setCartItems((prev) => {
+      const existing = prev.find((i) => i.sku === item.sku);
+      if (existing) {
+        if (existing.quantity >= item.stock) return prev;
+        return prev.map((i) =>
+          i.sku === item.sku ? { ...i, quantity: i.quantity + 1 } : i
+        );
+      }
+      return [
+        ...prev,
+        {
+          sku: item.sku,
+          name: item.name,
+          quantity: 1,
+          unit_price: item.unit_price,
+          currency: item.currency,
+          stock: item.stock,
+          category: item.category,
+        },
+      ];
+    });
+    setIsDrawerOpen(true);
+  };
+
+  const handleUpdateQuantity = (sku: string, delta: number) => {
+    setCartItems((prev) =>
+      prev
+        .map((item) => {
+          if (item.sku === sku) {
+            const nextQty = item.quantity + delta;
+            if (nextQty <= 0) return null;
+            if (nextQty > item.stock) return item;
+            return { ...item, quantity: nextQty };
+          }
+          return item;
+        })
+        .filter((item): item is CartItem => item !== null)
+    );
+  };
+
+  const handleRemoveItem = (sku: string) => {
+    setCartItems((prev) => prev.filter((i) => i.sku !== sku));
+  };
+
+  const handleClearCart = () => {
+    setCartItems([]);
+  };
+
+  const cartTotalAmount = cartItems
+    .reduce((sum, item) => sum + parseFloat(item.unit_price) * item.quantity, 0)
+    .toFixed(2);
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const categories = ['ALL', ...Array.from(new Set(catalog.map((i) => i.category)))];
 
@@ -53,54 +121,60 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <Navbar health={health} error={error} />
+      <Navbar
+        health={health}
+        error={error}
+        cartCount={cartItemCount}
+        cartTotal={cartTotalAmount}
+        onOpenCart={() => setIsDrawerOpen(true)}
+      />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Hero Section */}
         <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/90 to-indigo-950/40 p-8 sm:p-10 relative overflow-hidden shadow-2xl">
           <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold">
-              <Database className="w-3.5 h-3.5" />
-              Verified Authoritative Merchant Catalog
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Real PayPal Sandbox Orders v2 Integration
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              AI Purchasing Agent & Payment Operations
+              Enterprise Purchasing & Payment Operations
             </h1>
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              PayPilot AI bridges natural language enterprise purchasing with strict server-side validation and genuine PayPal Sandbox execution. This catalog forms the immutable source of truth for all agent intent reconciliation.
+              Select verified items from the authoritative merchant catalog, create an order on the server, approve payment in the PayPal Sandbox modal, and inspect the server-verified capture outcome.
             </p>
           </div>
 
           {/* Architecture Roadmap Bar */}
           <div className="mt-8 pt-6 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/60 border border-emerald-500/30">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
-                M1
+                <CheckCircle className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-semibold text-emerald-400 block">Milestone 1: Active</span>
+                <span className="text-xs font-semibold text-slate-300 block">Milestone 1: Complete</span>
                 <span className="text-[11px] text-slate-400">FastAPI, SQLite catalog, deterministic seeding & Decimal pricing</span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold text-xs shrink-0">
-                M2
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/60 border border-emerald-500/40">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+                <CreditCard className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-semibold text-slate-300 block">Milestone 2: Payments</span>
-                <span className="text-[11px] text-slate-400">PayPal Sandbox Orders v2 OAuth, Create Order & Server Capture</span>
+                <span className="text-xs font-semibold text-emerald-400 block">Milestone 2: Active</span>
+                <span className="text-[11px] text-slate-400">PayPal Sandbox Orders v2 OAuth, server capture & amount verification</span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 font-bold text-xs shrink-0">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/40 border border-slate-800 opacity-60">
+              <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-xs shrink-0">
                 M3
               </div>
               <div>
                 <span className="text-xs font-semibold text-slate-300 block">Milestone 3: AI Engine</span>
-                <span className="text-[11px] text-slate-400">Structured prompt intent parsing & explainable risk scoring</span>
+                <span className="text-[11px] text-slate-400">Structured natural language intent parsing & explainable risk scoring</span>
               </div>
             </div>
           </div>
@@ -195,9 +269,17 @@ export function App() {
         {/* Catalog Grid */}
         {!loading && !error && filteredItems.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredItems.map((item) => (
-              <CatalogCard key={item.id} item={item} />
-            ))}
+            {filteredItems.map((item) => {
+              const inCart = cartItems.find((i) => i.sku === item.sku);
+              return (
+                <CatalogCard
+                  key={item.id}
+                  item={item}
+                  quantityInCart={inCart ? inCart.quantity : 0}
+                  onAddToCart={handleAddToCart}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -222,9 +304,35 @@ export function App() {
         )}
       </main>
 
+      {/* Slide-out Checkout Drawer */}
+      <CheckoutDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        cartItems={cartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onClearCart={handleClearCart}
+        paymentConfig={paymentConfig}
+        onCheckoutSuccess={(result) => {
+          setCompletedCapture(result);
+          loadData(); // reload catalog to reflect new stock!
+        }}
+        onCheckoutCancel={() => {
+          // Keep cart intact so buyer can retry
+        }}
+        checkoutError={checkoutError}
+        setCheckoutError={setCheckoutError}
+      />
+
+      {/* Verified Receipt Modal */}
+      <ReceiptModal
+        result={completedCapture}
+        onClose={() => setCompletedCapture(null)}
+      />
+
       <footer className="border-t border-slate-800 bg-slate-950 py-6 mt-12">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
-          PayPilot AI — Phase 1 Prototype | PayPal Sandbox Checkout & Autonomous Agent Operations
+          PayPilot AI — Phase 2 Sandbox Integration | PayPal Orders v2 REST API & JavaScript SDK
         </div>
       </footer>
     </div>

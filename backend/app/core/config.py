@@ -17,11 +17,22 @@ class Settings(BaseSettings):
     ]
     database_url: str = "sqlite+aiosqlite:///./paypilot.db"
 
-    # Future integration settings (default empty for Milestone 1)
+    # PayPal Sandbox Settings
     paypal_mode: str = "sandbox"
+    paypal_base_url: str = "https://api-m.sandbox.paypal.com"
     paypal_client_id: str = ""
     paypal_client_secret: str = ""
+    paypal_currency: str = "USD"
     gemini_api_key: str = ""
+
+    @property
+    def is_paypal_configured(self) -> bool:
+        return bool(
+            self.paypal_client_id
+            and self.paypal_client_secret
+            and len(self.paypal_client_id.strip()) > 5
+            and len(self.paypal_client_secret.strip()) > 5
+        )
 
     model_config = SettingsConfigDict(
         env_file=".env",

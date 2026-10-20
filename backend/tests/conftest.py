@@ -5,10 +5,17 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.db.base import Base
 from app.db.seed import seed_catalog
 from app.db.session import get_db
+from app.models.catalog import CatalogItem  # noqa: F401
+from app.models.order import Order, OrderItem, AuditLog  # noqa: F401
 from app.main import app
+
+# Set test credentials
+settings.paypal_client_id = "test_sandbox_client_id_12345"
+settings.paypal_client_secret = "test_sandbox_client_secret_67890"
 
 
 # Use in-memory SQLite with StaticPool so all connections share the same in-memory DB during a test
