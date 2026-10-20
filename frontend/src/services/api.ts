@@ -96,6 +96,14 @@ export async function cancelBackendOrder(orderId: string): Promise<Order> {
   return response.json();
 }
 
+export async function fetchOrders(): Promise<Order[]> {
+  const response = await fetch(`${currentApiBaseUrl}/api/v1/orders`);
+  if (!response.ok) {
+    throw new Error(`Failed to load orders: HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function fetchOrderDetails(orderId: string): Promise<Order> {
   const response = await fetch(`${currentApiBaseUrl}/api/v1/orders/${orderId}`);
   if (!response.ok) {

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { CatalogItem, HealthStatus } from './types/catalog';
-import type { CartItem, CaptureResult, PaymentConfig } from './types/order';
-import { fetchCatalog, fetchHealth, fetchPaymentConfig, getApiBaseUrl } from './services/api';
+import type { CartItem, CaptureResult, Order, PaymentConfig } from './types/order';
+import { fetchCatalog, fetchHealth, fetchOrders, fetchPaymentConfig, getApiBaseUrl } from './services/api';
 import { Navbar } from './components/Navbar';
 import { CatalogCard } from './components/CatalogCard';
 import { CheckoutDrawer } from './components/CheckoutDrawer';
 import { ReceiptModal } from './components/ReceiptModal';
+import { TransactionHistoryModal } from './components/TransactionHistoryModal';
 import {
   Package,
   Search,
@@ -27,8 +28,23 @@ export function App() {
   // Cart & Checkout State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [completedCapture, setCompletedCapture] = useState<CaptureResult | null>(null);
+
+  const loadOrders = async () => {
+    setHistoryLoading(true);
+    try {
+      const orderList = await fetchOrders();
+      setOrders(orderList);
+    } catch {
+      // Ignore background order fetch failure
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -42,6 +58,7 @@ export function App() {
       setHealth(healthData);
       setCatalog(catalogData);
       setPaymentConfig(payConfig);
+      await loadOrders();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown connection error';
       setError(message);
@@ -127,6 +144,7 @@ export function App() {
         cartCount={cartItemCount}
         cartTotal={cartTotalAmount}
         onOpenCart={() => setIsDrawerOpen(true)}
+        onOpenHistory={() => setIsHistoryOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -328,6 +346,15 @@ export function App() {
       <ReceiptModal
         result={completedCapture}
         onClose={() => setCompletedCapture(null)}
+      />
+
+      {/* Persisted Transaction History Modal */}
+      <TransactionHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        orders={orders}
+        onRefresh={loadOrders}
+        loading={historyLoading}
       />
 
       <footer className="border-t border-slate-800 bg-slate-950 py-6 mt-12">

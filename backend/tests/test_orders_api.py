@@ -292,3 +292,33 @@ async def test_buyer_cancellation(client: AsyncClient):
     cap_res = await client.post(f"/api/v1/orders/{order_id}/capture")
     assert cap_res.status_code == 400
     assert "not eligible for capture" in cap_res.json()["detail"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_list_orders_persisted_transaction_history(client: AsyncClient):
+    respx.post(f"{BASE_URL}/v1/oauth2/token").respond(
+        status_code=200,
+        json={"access_token": "TEST_TOKEN_1", "expires_in": 32400},
+    )
+    respx.post(f"{BASE_URL}/v2/checkout/orders").respond(
+        status_code=201,
+        json={"id": "PAYPAL-ORDER-HIST-1", "status": "CREATED"},
+    )
+
+    # Create an order
+    await client.post(
+        "/api/v1/orders",
+        json={"items": [{"sku": "CHAIR-ERGO-01", "quantity": 1}]},
+    )
+
+    # Fetch transaction list
+    history_res = await client.get("/api/v1/orders")
+    assert history_res.status_code == 200
+    orders = history_res.json()
+    assert isinstance(orders, list)
+    assert len(orders) >= 1
+    assert "total_amount" in orders[0]
+    assert "paypal_order_id" in orders[0]
+    assert "audit_logs" in orders[0]
+

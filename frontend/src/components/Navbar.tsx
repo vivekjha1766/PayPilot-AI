@@ -1,6 +1,6 @@
 import React from 'react';
 import type { HealthStatus } from '../types/catalog';
-import { ShieldCheck, Server, AlertCircle, ShoppingBag } from 'lucide-react';
+import { ShieldCheck, Server, AlertCircle, ShoppingBag, History } from 'lucide-react';
 
 interface NavbarProps {
   health: HealthStatus | null;
@@ -8,6 +8,7 @@ interface NavbarProps {
   cartCount: number;
   cartTotal: string;
   onOpenCart: () => void;
+  onOpenHistory: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -16,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   cartCount,
   cartTotal,
   onOpenCart,
+  onOpenHistory,
 }) => {
   return (
     <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
@@ -35,10 +37,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span className="text-slate-300">PayPal Sandbox Environment</span>
+            <span className="text-slate-300">PayPal Sandbox</span>
           </div>
 
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
@@ -51,17 +53,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : error ? (
               <span className="flex items-center gap-1.5 text-rose-400 font-medium">
                 <AlertCircle className="w-3.5 h-3.5" />
-                Backend Disconnected
+                Disconnected
               </span>
             ) : (
               <span className="text-slate-400">Connecting...</span>
             )}
           </div>
 
+          {/* History Button */}
+          <button
+            onClick={onOpenHistory}
+            title="View Persisted Transaction History"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 font-medium text-xs transition-colors"
+          >
+            <History className="w-4 h-4 text-indigo-400" />
+            <span className="hidden sm:inline">History</span>
+          </button>
+
           {/* Cart / Purchase Order Button */}
           <button
             onClick={onOpenCart}
-            className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-all shadow-md shadow-indigo-600/20"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-all shadow-md shadow-indigo-600/20"
           >
             <div className="relative">
               <ShoppingBag className="w-4 h-4" />
@@ -71,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               )}
             </div>
-            <span>Purchase Order {cartCount > 0 ? `($${cartTotal})` : ''}</span>
+            <span>Cart {cartCount > 0 ? `($${cartTotal})` : ''}</span>
           </button>
         </div>
       </div>

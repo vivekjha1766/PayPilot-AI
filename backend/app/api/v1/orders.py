@@ -177,6 +177,20 @@ async def create_order(
     return internal_order
 
 
+@router.get("", response_model=List[OrderResponse])
+async def list_orders(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+) -> List[OrderResponse]:
+    """
+    Retrieves persisted transaction history ordered by creation date descending.
+    """
+    stmt = select(Order).order_by(Order.created_at.desc()).limit(limit)
+    result = await db.execute(stmt)
+    orders = result.scalars().all()
+    return list(orders)
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: str,
