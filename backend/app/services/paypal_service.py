@@ -106,7 +106,7 @@ class PayPalService:
                 raise PayPalAuthError(
                     f"PayPal OAuth failed with status {response.status_code}",
                     status_code=response.status_code,
-                    details=response.text,
+                    details={"status_code": response.status_code},
                 )
 
             token_data = response.json()
@@ -193,10 +193,20 @@ class PayPalService:
             raise PayPalOrderCreationError(f"Network error creating PayPal order: {e}")
 
         if response.status_code not in (200, 201):
+            err_json = {}
+            try:
+                err_json = response.json()
+            except Exception:
+                pass
+            name = err_json.get("name", "")
+            desc = err_json.get("message", "")
+            err_msg = f"PayPal order creation failed: {name}" if name else f"PayPal order creation failed with status {response.status_code}"
+            if desc:
+                err_msg += f" - {desc}"
             raise PayPalOrderCreationError(
-                f"PayPal order creation failed with status {response.status_code}",
+                err_msg,
                 status_code=response.status_code,
-                details=response.text,
+                details={"name": name, "status_code": response.status_code},
             )
 
         data = response.json()
@@ -270,20 +280,34 @@ class PayPalService:
                     pass
                 details = err_json.get("details", [])
                 issue = details[0].get("issue") if details else ""
+                desc = details[0].get("description") if details else ""
                 if issue == "ORDER_ALREADY_CAPTURED":
                     order_info = await self.get_order_details(paypal_order_id)
                     capture_response_data = order_info
                 else:
+                    err_msg = f"PayPal capture rejected: {issue}" if issue else f"PayPal capture rejected (HTTP 422)"
+                    if desc:
+                        err_msg += f" - {desc}"
                     raise PayPalCaptureError(
-                        f"PayPal capture rejected: {issue or response.text}",
+                        err_msg,
                         status_code=422,
-                        details=response.text,
+                        details={"issue": issue, "status_code": 422},
                     )
             else:
+                err_json = {}
+                try:
+                    err_json = response.json()
+                except Exception:
+                    pass
+                name = err_json.get("name", "")
+                desc = err_json.get("message", "")
+                err_msg = f"PayPal capture failed: {name}" if name else f"PayPal capture failed with HTTP {response.status_code}"
+                if desc:
+                    err_msg += f" - {desc}"
                 raise PayPalCaptureError(
-                    f"PayPal capture failed with HTTP {response.status_code}",
+                    err_msg,
                     status_code=response.status_code,
-                    details=response.text,
+                    details={"name": name, "status_code": response.status_code},
                 )
 
         except httpx.TimeoutException:
@@ -306,6 +330,7 @@ class PayPalService:
             data=capture_response_data,
             expected_amount=expected_amount,
             expected_currency=expected_currency,
+            expected_order_id=paypal_order_id,
         )
 
     def _validate_and_extract_capture(
@@ -313,14 +338,30 @@ class PayPalService:
         data: Dict[str, Any],
         expected_amount: Decimal,
         expected_currency: str,
+        expected_order_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Strictly verifies that:
-        1. Order status is COMPLETED.
-        2. Valid capture record exists with status COMPLETED.
-        3. Captured amount and currency match internal order expectations.
+        1. Order ID matches expected PayPal order ID (if provided).
+        2. PayPal order status is COMPLETED.
+        3. Valid capture record exists with status COMPLETED.
+        4. Captured amount and currency match internal order expectations.
         """
+        if expected_order_id:
+            response_order_id = data.get("id")
+            if response_order_id and response_order_id != expected_order_id:
+                raise PayPalCaptureError(
+                    f"PayPal order ID mismatch: expected {expected_order_id}, got {response_order_id}",
+                    status_code=400,
+                )
+
         order_status = data.get("status")
+        if order_status != "COMPLETED":
+            raise PayPalCaptureError(
+                f"PayPal order status is '{order_status}', expected 'COMPLETED'",
+                status_code=400,
+            )
+
         purchase_units = data.get("purchase_units", [])
         if not purchase_units:
             raise PayPalCaptureError("PayPal capture response missing 'purchase_units'")

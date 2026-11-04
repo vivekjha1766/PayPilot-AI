@@ -11,6 +11,7 @@ from app.db.seed import seed_catalog
 from app.db.session import get_db
 from app.models.catalog import CatalogItem  # noqa: F401
 from app.models.order import Order, OrderItem, AuditLog  # noqa: F401
+from app.models.inventory import InventoryMovement  # noqa: F401
 from app.main import app
 
 # Set test credentials

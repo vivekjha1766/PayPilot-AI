@@ -25,6 +25,11 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreateRequest(BaseModel):
     items: List[OrderItemCreate] = Field(min_length=1, description="At least one item required")
+    client_idempotency_key: Optional[str] = Field(
+        default=None,
+        max_length=64,
+        description="Optional unique client idempotency key to prevent duplicate orders",
+    )
 
 
 class OrderItemResponse(BaseModel):
@@ -64,6 +69,7 @@ class OrderResponse(BaseModel):
     currency: str
     paypal_order_id: Optional[str] = None
     paypal_capture_id: Optional[str] = None
+    client_idempotency_key: Optional[str] = None
     items: List[OrderItemResponse] = []
     audit_logs: List[AuditLogResponse] = []
     created_at: datetime

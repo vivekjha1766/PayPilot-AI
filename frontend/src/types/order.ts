@@ -30,6 +30,7 @@ export interface Order {
   currency: string;
   paypal_order_id?: string;
   paypal_capture_id?: string;
+  client_idempotency_key?: string;
   items: OrderItemSnapshot[];
   audit_logs: AuditLogItem[];
   created_at: string;

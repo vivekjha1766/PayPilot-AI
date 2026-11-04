@@ -35,10 +35,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     from app.models.catalog import CatalogItem  # noqa: F401
     from app.models.order import Order, OrderItem, AuditLog  # noqa: F401
+    from app.models.inventory import InventoryMovement  # noqa: F401
+    from app.db.migrations import run_migrations
     from app.db.seed import seed_catalog
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await run_migrations(conn)
 
     async with async_session_factory() as session:
         await seed_catalog(session)

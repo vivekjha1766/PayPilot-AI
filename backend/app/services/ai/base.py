@@ -1,24 +1,33 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+from app.schemas.assistant import RawLLMPlanResponse
 
 
-class AIService(ABC):
+class BaseAIProvider(ABC):
     """
-    Provider-independent interface for AI operations in PayPilot AI.
-    Controls intent extraction and explainable risk analysis.
+    Provider-independent AI Service interface for generating catalog-grounded purchase plans.
     """
 
+    @property
     @abstractmethod
-    async def parse_purchase_intent(self, prompt: str) -> Dict[str, Any]:
-        """
-        Parses natural language purchase intent into structured candidate items.
-        Does NOT execute orders or dictate binding prices.
-        """
+    def provider_name(self) -> str:
+        """Name of the provider (e.g. 'gemini', 'mock')."""
         pass
 
     @abstractmethod
-    async def evaluate_risk(self, draft_order: Dict[str, Any]) -> Dict[str, Any]:
+    async def generate_plan(
+        self,
+        prompt: str,
+        catalog_items: List[Dict[str, Any]],
+        budget: Optional[Decimal] = None,
+    ) -> RawLLMPlanResponse:
         """
-        Evaluates risk on server-validated draft order and returns an explainable score.
+        Parses user intent and returns raw LLM recommendations referencing catalog items.
+        Model output must be treated as untrusted and validated by the caller.
         """
         pass
+
+
+# Alias for backwards compatibility
+AIService = BaseAIProvider

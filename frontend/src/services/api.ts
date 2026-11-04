@@ -1,3 +1,4 @@
+import type { AssistantPlanResponse, AssistantStatus } from '../types/assistant';
 import type { CatalogItem, HealthStatus } from '../types/catalog';
 import type { CaptureResult, Order, PaymentConfig } from '../types/order';
 
@@ -52,12 +53,17 @@ export async function fetchPaymentConfig(): Promise<PaymentConfig> {
 }
 
 export async function createBackendOrder(
-  items: { sku: string; quantity: number }[]
+  items: { sku: string; quantity: number }[],
+  client_idempotency_key?: string
 ): Promise<Order> {
+  const payload: { items: { sku: string; quantity: number }[]; client_idempotency_key?: string } = { items };
+  if (client_idempotency_key) {
+    payload.client_idempotency_key = client_idempotency_key;
+  }
   const response = await fetch(`${currentApiBaseUrl}/api/v1/orders`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -110,4 +116,61 @@ export async function fetchOrderDetails(orderId: string): Promise<Order> {
     throw new Error(`Failed to fetch order details: HTTP ${response.status}`);
   }
   return response.json();
+}
+
+export async function fetchAssistantStatus(): Promise<AssistantStatus> {
+  const response = await fetch(`${currentApiBaseUrl}/api/v1/assistant/status`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch assistant status: HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function generateAssistantPlan(
+  prompt: string,
+  budget?: number,
+  provider?: string
+): Promise<AssistantPlanResponse> {
+  const params = new URLSearchParams();
+  if (provider) params.append('provider', provider);
+  const queryStr = params.toString() ? `?${params.toString()}` : '';
+
+  const body: { prompt: string; budget?: number } = { prompt };
+  if (budget !== undefined && !isNaN(budget) && budget > 0) {
+    body.budget = budget;
+  }
+
+  const response = await fetch(`${currentApiBaseUrl}/api/v1/assistant/plan${queryStr}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || `AI plan generation failed: HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function downloadOrderReceipt(orderId: string): Promise<Blob> {
+  const response = await fetch(`${currentApiBaseUrl}/api/v1/orders/${orderId}/receipt`);
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || `Failed to download receipt: HTTP ${response.status}`);
+  }
+  return response.blob();
+}
+
+export async function triggerReceiptDownload(orderId: string): Promise<void> {
+  const blob = await downloadOrderReceipt(orderId);
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `paypilot-receipt-${orderId.slice(0, 8)}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 }

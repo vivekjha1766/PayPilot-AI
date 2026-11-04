@@ -1,6 +1,6 @@
 import React from 'react';
 import type { HealthStatus } from '../types/catalog';
-import { ShieldCheck, Server, AlertCircle, ShoppingBag, History } from 'lucide-react';
+import { ShoppingBag, History, AlertCircle } from 'lucide-react';
 
 interface NavbarProps {
   health: HealthStatus | null;
@@ -20,70 +20,80 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenHistory,
 }) => {
   return (
-    <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        {/* Typographic Wordmark & Blue Brand Accent */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <span className="font-bold text-white text-xl tracking-wider">P</span>
+          <div className="w-8 h-8 rounded border border-blue-border bg-blue-soft flex items-center justify-center text-blue-primary shadow-xs">
+            <span className="font-serif italic font-bold text-lg leading-none">P</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg text-white tracking-tight">PayPilot AI</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                M2: PayPal Sandbox Live
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">Autonomous Payment Operations & Purchasing Agent</p>
+          <div className="flex items-baseline gap-2.5">
+            <span className="font-serif text-xl sm:text-2xl text-navy tracking-tight font-normal">
+              PayPilot
+            </span>
+            <span className="hidden sm:inline-block text-[10px] uppercase font-mono tracking-widest text-slate-muted border-l border-slate-border pl-2.5">
+              Fintech Operations
+            </span>
           </div>
         </div>
 
+        {/* Status Indicators & Navigation Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span className="text-slate-300">PayPal Sandbox</span>
+          {/* Environment Indicator */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded border border-slate-border bg-white text-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-primary" />
+            <span className="font-mono text-[11px] text-slate-muted">ENV:</span>
+            <span className="font-medium text-navy text-[11px]">PayPal Sandbox</span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
-            <Server className="w-3.5 h-3.5 text-slate-400" />
+          {/* Backend Health Status */}
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded border border-slate-border bg-white text-xs">
             {health ? (
-              <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                Backend Online (v{health.version})
+              <span className="flex items-center gap-1.5 text-slate-muted text-[11px] font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-forest inline-block" />
+                <span className="text-navy font-sans text-xs font-medium">API Online</span>
+                <span className="text-[10px] text-slate-muted">v{health.version}</span>
               </span>
             ) : error ? (
-              <span className="flex items-center gap-1.5 text-rose-400 font-medium">
+              <span className="flex items-center gap-1.5 text-accent-crimson text-xs font-medium">
                 <AlertCircle className="w-3.5 h-3.5" />
-                Disconnected
+                <span>Disconnected</span>
               </span>
             ) : (
-              <span className="text-slate-400">Connecting...</span>
+              <span className="text-slate-muted text-xs">Connecting...</span>
             )}
           </div>
 
-          {/* History Button */}
+          {/* Transaction History Button */}
           <button
             onClick={onOpenHistory}
-            title="View Persisted Transaction History"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 font-medium text-xs transition-colors"
+            type="button"
+            aria-label="View transaction history"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-border bg-white hover:bg-blue-soft/60 hover:border-blue-border hover:text-blue-primary text-navy text-xs font-medium transition-colors"
           >
-            <History className="w-4 h-4 text-indigo-400" />
+            <History className="w-3.5 h-3.5 text-slate-muted" />
             <span className="hidden sm:inline">History</span>
           </button>
 
-          {/* Cart / Purchase Order Button */}
+          {/* Cart / Order Trigger in Primary Brand Blue */}
           <button
             onClick={onOpenCart}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-all shadow-md shadow-indigo-600/20"
+            type="button"
+            aria-label={`Open purchase order, ${cartCount} items totaling $${cartTotal}`}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded bg-blue-primary hover:bg-blue-hover text-white text-xs font-medium transition-colors shadow-xs"
           >
-            <div className="relative">
-              <ShoppingBag className="w-4 h-4" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-[10px] font-bold text-slate-950 flex items-center justify-center">
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>Order</span>
+            {cartCount > 0 ? (
+              <span className="inline-flex items-center gap-1 pl-1 border-l border-blue-hover">
+                <span className="w-4 h-4 rounded-full bg-white text-blue-primary text-[10px] font-bold flex items-center justify-center">
                   {cartCount}
                 </span>
-              )}
-            </div>
-            <span>Cart {cartCount > 0 ? `($${cartTotal})` : ''}</span>
+                <span className="hidden sm:inline tabular-nums font-mono text-[11px]">
+                  ${cartTotal}
+                </span>
+              </span>
+            ) : null}
           </button>
         </div>
       </div>

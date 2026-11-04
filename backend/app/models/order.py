@@ -7,6 +7,7 @@ from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, Tex
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.inventory import InventoryMovement
 
 
 class OrderStatus:
@@ -59,6 +60,12 @@ class Order(Base):
         nullable=False,
         default=lambda: str(uuid.uuid4()),
     )
+    client_idempotency_key: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),
@@ -82,6 +89,12 @@ class Order(Base):
         back_populates="order",
         cascade="all, delete-orphan",
         order_by="AuditLog.created_at.asc()",
+        lazy="selectin",
+    )
+    inventory_movements: Mapped[List["InventoryMovement"]] = relationship(
+        "InventoryMovement",
+        back_populates="order",
+        cascade="all, delete-orphan",
         lazy="selectin",
     )
 

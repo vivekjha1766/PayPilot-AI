@@ -1,8 +1,8 @@
 from typing import Any, Dict
-from app.services.ai.base import AIService
+from app.services.ai.mock_provider import MockAIProvider
 
 
-class MockAIService(AIService):
+class MockAIService(MockAIProvider):
     """
     Deterministic test double for AIService.
     Used for unit testing, offline execution, and predictable validation.
