@@ -93,112 +93,228 @@ PayPilot AI unifies natural-language procurement with fintech payment integrity:
 
 ---
 
-## 6. Setup and Installation
+## 6. Judge Quick Start & Evaluation Guide
 
-### Prerequisites
-- Python 3.13+
-- Node.js 18+ and npm
-- Windows PowerShell, macOS zsh, or Linux bash
+This guide provides end-to-end instructions for hackathon judges and evaluators to run, interact with, and verify PayPilot AI locally.
 
-### Backend Setup
+> [!IMPORTANT]
+> **Fintech Environment Safeguards**:
+> - **PayPal Sandbox Only**: This application connects exclusively to the official PayPal Developer Sandbox (`api-m.sandbox.paypal.com`). It does **not** process live payments.
+> - **Zero Bundled Secrets**: In accordance with open-source security best practices, no real PayPal API credentials or Google Gemini keys are committed to this repository. Evaluators configure their own free sandbox credentials or test using the offline Mock AI provider.
+> - **Advisory AI Architecture**: The AI Purchasing Consultant is strictly **advisory**. Recommendations are grounded against the database, but all payment totals, tax amounts, inventory reservations, and captures are enforced server-side by FastAPI and SQLite.
+
+---
+
+### Step 1: Prerequisites & Supported Software
+
+Verify that your workstation meets the following runtime requirements:
+- **Python**: Version `3.11`, `3.12`, or `3.13` (`python --version`)
+- **Node.js**: Version `18.x`, `20.x`, or `22.x` (`node --version`)
+- **Package Managers**: `pip` (Python) and `npm` (Node)
+- **Supported Operating Systems**: Windows (PowerShell / Command Prompt), macOS (zsh / bash), or Linux (bash)
+
+---
+
+### Step 2: Backend Installation & Automatic Database Initialization
+
+The backend is built with FastAPI and SQLite (`aiosqlite`). On initial startup, the backend automatically initializes `backend/paypilot.db`, creates all required tables, applies schema migrations, and seeds the 8-item catalog with certified pricing and stock. No manual database setup scripts are required.
 
 ```bash
-# 1. Navigate to backend directory
+# 1. From the repository root, enter the backend directory
 cd backend
 
-# 2. Create and activate a Python virtual environment
+# 2. Create an isolated Python virtual environment
 python -m venv .venv
 
+# 3. Activate the virtual environment
 # Windows PowerShell:
 .\.venv\Scripts\Activate.ps1
+# Windows Command Prompt:
+.\.venv\Scripts\activate.bat
 # macOS / Linux:
 source .venv/bin/activate
 
-# 3. Install dependencies
+# 4. Install backend dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment variables
-# Copy template and fill in your keys (DO NOT commit .env):
+# 5. Create local environment file from template
+# Windows PowerShell / Linux / macOS:
 cp .env.example .env
-
-# 5. Run automated test suite (76 tests)
-pytest
-
-# 6. Start the FastAPI development server
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Frontend Setup
+---
+
+### Step 3: Configure Environment & Credentials
+
+Open `backend/.env` in your editor. Below is the configuration reference:
+
+```env
+APP_NAME="PayPilot AI"
+APP_ENV=development
+HOST=127.0.0.1
+PORT=8000
+CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173","http://localhost:5174","http://127.0.0.1:5174"]
+DATABASE_URL=sqlite+aiosqlite:///./paypilot.db
+
+# --- PayPal Sandbox (Required for Live Sandbox Checkout) ---
+PAYPAL_MODE=sandbox
+PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com
+PAYPAL_CLIENT_ID=your_sandbox_client_id
+PAYPAL_CLIENT_SECRET=your_sandbox_client_secret
+PAYPAL_CURRENCY=USD
+
+# --- Gemini AI (Optional - Test Mode Available Offline) ---
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.8-flash
+GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
+```
+
+#### A. Obtaining PayPal Sandbox Credentials (Free)
+1. Log in to the [PayPal Developer Dashboard](https://developer.paypal.com/dashboard/).
+2. Navigate to **Apps & Credentials** > **Sandbox**.
+3. Create an application (or use the **Default Application**) and copy the **Client ID** and **SecretKey**.
+4. Paste them into `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` in `backend/.env`.
+5. Under **Testing Tools** > **Sandbox Accounts**, note the generated **Personal Buyer Account** email and password for completing test checkouts.
+
+#### B. Gemini API Key (Optional — Offline Deterministic Mock Included)
+- **Live Mode**: Obtain a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey) and paste it into `GEMINI_API_KEY`.
+- **Offline / Mock Mode**: If `GEMINI_API_KEY` is left blank, the application automatically defaults to the deterministic `MockAIProvider`. Evaluators can also check the **"Test Mode (Mock)"** toggle in the UI at any time to run the purchasing consultant without network calls.
+
+---
+
+### Step 4: Start the Backend Service
 
 ```bash
-# 1. Navigate to frontend directory in a separate terminal
+# Start FastAPI backend on 127.0.0.1:8000
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+You should see:
+```text
+INFO: Application startup complete.
+INFO: Uvicorn running on http://127.0.0.1:8000
+```
+- Health Check: `http://127.0.0.1:8000/health`
+- Interactive OpenAPI Docs: `http://127.0.0.1:8000/docs`
+
+---
+
+### Step 5: Frontend Installation & Startup
+
+In a **separate terminal**, set up and run the React + Vite frontend:
+
+```bash
+# 1. From repository root, navigate to frontend
 cd frontend
 
-# 2. Install dependencies
+# 2. Install Node dependencies
 npm install
 
-# 3. Run linting and production build validation
-npm run lint
-npm run build
-
-# 4. Start the Vite development server
+# 3. Start the Vite development server
 npm run dev
 ```
 
-The frontend will start on `http://127.0.0.1:5173` and automatically establish a handshake with the FastAPI backend on port 8000.
+The frontend will start on `http://127.0.0.1:5173`. Open this URL in Microsoft Edge, Google Chrome, Safari, or Mozilla Firefox.
 
 ---
 
-## 7. Environment Variables Reference
+## 7. Interactive Judge Evaluation Walkthrough
 
-Configure these in `backend/.env` (use `.env.example` as a template):
+Follow these sequential steps to evaluate all core features of PayPilot AI:
 
-| Variable | Description | Example / Default |
-| :--- | :--- | :--- |
-| `APP_NAME` | Name of the application | `"PayPilot AI"` |
-| `APP_ENV` | Application environment | `development` / `production` |
-| `HOST` | Bind host address | `127.0.0.1` |
-| `PORT` | Backend port | `8000` |
-| `CORS_ORIGINS` | Permitted CORS origins | `["http://localhost:5173","http://127.0.0.1:5173"]` |
-| `DATABASE_URL` | SQLite async database connection URL | `sqlite+aiosqlite:///./paypilot.db` |
-| `PAYPAL_MODE` | PayPal operating mode | `sandbox` |
-| `PAYPAL_BASE_URL` | PayPal REST API base URL | `https://api-m.sandbox.paypal.com` |
-| `PAYPAL_CLIENT_ID` | PayPal Developer Sandbox App Client ID | *(from PayPal Developer Dashboard)* |
-| `PAYPAL_CLIENT_SECRET`| PayPal Developer Sandbox Secret | *(isolated backend secret)* |
-| `PAYPAL_CURRENCY` | Operating settlement currency | `USD` |
-| `GEMINI_API_KEY` | Google Gemini API Key | *(from Google AI Studio)* |
-| `GEMINI_MODEL` | Primary generative AI model | `gemini-3.8-flash` |
-| `GEMINI_FALLBACK_MODEL`| Resilient fallback model | `gemini-3.5-flash-lite` |
+### A. Catalog Exploration & Instant Search
+1. Open `http://127.0.0.1:5173/` in your browser.
+2. Filter items using the category chips: `ALL`, `Furniture`, `Displays`, `Peripherals`, `Audio`, `Lighting`, `Accessories`.
+3. Type `"ergonomic chair"` in the search bar. Observe instant real-time filtering isolating the *AeroPro Ergonomic Mesh Chair* ($289.50 USD) with active stock counter.
+4. Click **Clear** to restore the catalog.
+
+### B. AI Purchasing Consultant & Risk Scoring
+1. Scroll to the **Purchasing Consultant** section.
+2. Choose one of the sample prompt pills (e.g., *"Equip an ergonomic workstation with a chair and split keyboard under $500"*), or enter your own procurement query.
+3. Set an optional target budget (e.g., `500.00`).
+4. Click **Generate Purchase Proposal**.
+   - If using live Gemini: Intent is analyzed with `gemini-3.8-flash` (with automatic fallback to `gemini-3.5-flash-lite` if upstream limits are reached).
+   - If offline or toggled: The deterministic Mock engine interprets SKUs instantly.
+5. Review the **Grounded Proposal**:
+   - Parsed Procurement Intent and SKU mapping.
+   - Grounded warehouse stock check.
+   - **Explainable Multi-Factor Risk Score** (`LOW`, `MEDIUM`, or `HIGH`) evaluating price delta, quantity constraints, and order velocity.
+6. Click **Add Proposal to Order** to automatically stage recommended items into your cart.
+
+### C. PayPal Sandbox Checkout & Server-Side Capture
+1. Click **Purchase Order** (top-right cart button) to open the slide-out checkout drawer.
+2. Review line items, quantity selectors, subtotal, and calculated tax.
+3. If valid sandbox credentials were provided in `backend/.env`, official containerized **PayPal Smart Buttons** appear.
+4. Click the yellow **PayPal** button. A secure PayPal Sandbox popup opens.
+5. Log in with your Sandbox Personal Buyer account credentials.
+6. Click **Complete Purchase** on the PayPal modal.
+7. **What happens behind the scenes**:
+   - The frontend calls `POST /api/v1/orders` with an `X-Idempotency-Key`.
+   - The FastAPI backend validates catalog prices server-side, checks available stock, and creates a PayPal Sandbox order.
+   - Upon buyer approval, `POST /api/v1/orders/{id}/capture` executes server-side amount verification, commits atomic inventory deduction in the movement ledger, and marks the internal order `COMPLETED`.
+
+### D. Transaction History & Audit Trail
+1. Click **History** in the top navigation bar to open the **Transaction Ledger** modal.
+2. Observe all historical orders, status badges (`COMPLETED`, `CANCELLED`), order timestamps, and total settlement amounts.
+3. Click an order card to expand its complete server-side audit trail:
+   - `ORDER_CREATED`
+   - `PAYPAL_ORDER_CREATED`
+   - `CAPTURE_COMPLETED`
+   - `INVENTORY_DEDUCTED`
+
+### E. Official PDF Settlement Receipt Verification
+1. Inside the Transaction Ledger modal, click **Download Receipt** on any verified `COMPLETED` order.
+2. The browser downloads an official PDF receipt generated on-demand by ReportLab (`downloaded_receipt_<order_id>.pdf`).
+3. Open the receipt to inspect:
+   - Official PayPilot verification seal and merchant metadata.
+   - Unique order UUID and PayPal Capture Transaction ID.
+   - Itemized table with certified unit prices and tax calculation.
+   - Cryptographic settlement verification footer.
+4. *Security note*: Attempting to request a receipt for uncaptured or cancelled orders returns an intentional `HTTP 400 Bad Request`.
 
 ---
 
-## 8. Verification & Test Suite
+## 8. Verification & Automated Test Suites
 
-### Automated Backend Tests
-Run the complete backend test suite:
+### Automated Backend Tests (76 Tests, 100% Pass)
+To execute the complete automated test suite covering all payment, AI, and security logic:
+
 ```powershell
-backend\.venv\Scripts\pytest backend\tests
+# From repository root
+backend\.venv\Scripts\pytest backend\tests -v
 ```
-**Status: 76 passed (100% green)**
-- `test_receipt.py` (5 tests): PDF generation, line item rendering, rejected status handling (400), non-existent orders (404), unit tests.
-- `test_assistant.py` (25 tests): Intent parsing, catalog grounding, 503 fallback, 429 quota fallback, non-transient error handling, prompt injection defense, risk scoring.
-- `test_orders_api.py` (11 tests): Order creation, price tampering rejection, concurrency locks, cancellation.
-- `test_paypal_service.py` (8 tests): OAuth caching, capture validation, amount mismatch detection.
-- `test_security_hardening.py` (23 tests): Idempotency constraints, sanitization, secret leakage prevention.
-- `test_catalog.py`, `test_health.py`, `test_seeding.py` (4 tests): Storefront endpoints and database seeding.
+Test suite breakdown:
+- `backend/tests/test_assistant.py` (25 tests): Intent parsing, catalog grounding, 503 fallback, 429 quota fallback, non-transient error handling, prompt injection defense, risk scoring.
+- `backend/tests/test_receipt.py` (5 tests): PDF generation, line item rendering, rejected status handling (400), non-existent orders (404), layout formatting.
+- `backend/tests/test_orders_api.py` (11 tests): Order creation, price tampering rejection, concurrency locks, cancellation.
+- `backend/tests/test_paypal_service.py` (8 tests): OAuth caching, capture validation, amount mismatch detection.
+- `backend/tests/test_security_hardening.py` (23 tests): Idempotency constraints, sanitization, secret leakage prevention.
+- `backend/tests/test_catalog.py`, `test_health.py`, `test_seeding.py` (4 tests): Storefront endpoints, database seeding, health routes.
 
-### Frontend Quality Assurance
+### Frontend Quality Assurance & Production Build
 ```bash
-# Run oxlint for static analysis (0 errors)
+# Oxlint static analysis (0 errors)
 npm --prefix frontend run lint
 
-# Run TypeScript compilation and Vite production build (0 errors)
+# TypeScript compilation & Vite production build (0 errors)
 npm --prefix frontend run build
 ```
 
 ---
 
-## 9. Product Demonstration & Media Showcase
+## 9. Troubleshooting Common Issues
+
+| Issue / Symptom | Probable Cause | Recommended Resolution |
+| :--- | :--- | :--- |
+| **Backend fails with `ModuleNotFoundError: No module named 'aiosqlite'`** | Running against global Python instead of virtual environment | Activate the virtual environment (`.\.venv\Scripts\Activate.ps1` or `source .venv/bin/activate`) before running `uvicorn` or `pytest`. |
+| **Port 8000 already in use** | An earlier backend server instance is running | Terminate the existing process or run Uvicorn on an alternate port: `uvicorn app.main:app --port 8001` (and update `CORS_ORIGINS`). |
+| **Frontend shows "PayPal client configuration unavailable"** | `PAYPAL_CLIENT_ID` is empty or missing in `backend/.env` | Add your sandbox client ID to `backend/.env` and restart the backend. Direct catalog exploration and AI proposals remain fully functional without PayPal keys. |
+| **PayPal button popup shows generic error or closes** | Sandbox buyer account login mismatch | Ensure you are logging into the popup using a **Sandbox Personal Account** generated in your PayPal Developer dashboard, not real PayPal credentials. |
+| **AI Assistant displays "Gemini AI provider is not configured"** | `GEMINI_API_KEY` was left blank in `backend/.env` | Check the **"Test Mode (Mock)"** checkbox in the top-right of the Purchasing Consultant card to evaluate full recommendations offline. |
+| **CORS network error in browser console** | Frontend origin not present in backend CORS list | Ensure `backend/.env` contains `CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]`. |
+
+---
+
+## 10. Product Demonstration & Media Showcase
 
 A comprehensive demonstration suite, high-definition video walkthrough, and promotional gallery are included in [`demo/`](demo/):
 
@@ -217,8 +333,19 @@ A comprehensive demonstration suite, high-definition video walkthrough, and prom
 
 ---
 
-## 10. Known Limitations & Hackathon Freeze Notice
+## 11. Known Limitations & Hackathon Freeze Notice
 
 - **Sandbox Scope**: PayPal integration operates against the official PayPal Sandbox environment (`api-m.sandbox.paypal.com`). Live production merchant credential swaps require business verification and live app approval.
 - **Model Upstream Pressure**: The primary model `gemini-3.8-flash` occasionally encounters upstream capacity spikes (`503 UNAVAILABLE`). The built-in automated resilience fallback immediately routes requests to `gemini-3.5-flash-lite`, ensuring zero user disruption.
 - **Submission Freeze**: All code, database schemas, and dependencies are frozen for final hackathon evaluation.
+
+---
+
+## 12. License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for complete details.
+
+```text
+Copyright (c) 2026 Vivek Jha
+SPDX-License-Identifier: MIT
+```
